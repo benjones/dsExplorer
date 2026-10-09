@@ -19,6 +19,10 @@ def copy_static_files() -> None:
     DIST.mkdir(exist_ok=True)
     shutil.copy2(ROOT / "index.html", DIST / "index.html")
     shutil.copy2(ROOT / "src" / "global.css", DIST / "global.css")
+    component_output = DIST / "js" / "components"
+    component_output.mkdir(parents=True, exist_ok=True)
+    for stylesheet in (ROOT / "src" / "components").glob("*.css"):
+        shutil.copy2(stylesheet, component_output / stylesheet.name)
 
 
 class DevelopmentRequestHandler(SimpleHTTPRequestHandler):

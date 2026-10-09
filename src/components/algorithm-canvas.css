@@ -1,0 +1,14 @@
+:host, *, *::before, *::after { box-sizing: border-box; }
+:host { display: block; }
+.panel { display: flex; flex-direction: column; height: 100%; gap: 1rem; padding: 1rem; background: var(--color-panel); }
+.heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+h1 { margin: 0; font-size: 1rem; }
+.heading span { color: var(--color-muted); font-size: 0.85rem; }
+.canvas { width: 100%; min-height: 0; flex: 1; color: var(--color-canvas-text); touch-action: none; }
+.canvas-border { fill: var(--color-surface); stroke: var(--color-control-border); stroke-dasharray: 5 5; }
+.canvas-hint { fill: var(--color-muted); }
+.canvas.is-drop-target .canvas-border { fill: var(--color-drop); stroke: var(--color-drop-border); }
+.canvas-item { cursor: grab; }
+.canvas-item rect { fill: var(--color-item-fill); stroke: var(--color-item-stroke); stroke-width: 1.25; }
+.canvas-item path { fill: none; stroke: var(--color-item-stroke); stroke-width: 1.6; stroke-linecap: round; }
+.canvas-item.is-dragging { cursor: grabbing; }

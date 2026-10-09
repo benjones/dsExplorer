@@ -39,25 +39,7 @@ export class DataTypePaletteEntry extends HTMLElement {
     const title = this.getAttribute("title") ?? "Untitled data type";
     const root = this.shadowRoot ?? this.attachShadow({ mode: "open" });
     root.innerHTML = `
-      <style>
-        :host, *, *::before, *::after { box-sizing: border-box; }
-        :host { display: block; }
-        button {
-          display: flex;
-          align-items: center;
-          width: 100%;
-          gap: 0.6rem;
-          border: 1px solid var(--color-control-border);
-          border-radius: 0.35rem;
-          padding: 0.5rem 0.65rem;
-          color: var(--color-text);
-          background: var(--color-control);
-          text-align: left;
-          font: inherit;
-        }
-        button:hover { background: var(--color-control-hover); cursor: grab; }
-        svg { width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-width: 1.6; }
-      </style>
+      <link rel="stylesheet" href="${new URL("./data-type-palette-entry.css", import.meta.url).href}" />
       <button type="button">
         <span></span>
       </button>

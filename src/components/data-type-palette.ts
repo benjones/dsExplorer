@@ -10,17 +10,7 @@ export class DataTypePalette extends HTMLElement {
   connectedCallback(): void {
     const root = this.shadowRoot ?? this.attachShadow({ mode: "open" });
     root.innerHTML = `
-      <style>
-        :host, *, *::before, *::after { box-sizing: border-box; }
-        :host { display: block; }
-        .panel { display: flex; flex-direction: column; height: 100%; gap: 0.5rem; padding: 1rem; background: var(--color-panel); }
-        h2 { margin: 0; font-size: 1rem; }
-        @media (max-width: 700px) {
-          .panel { flex-direction: row; flex-wrap: wrap; }
-          h2 { width: 100%; }
-          data-type-palette-entry { flex: 1 1 auto; }
-        }
-      </style>
+      <link rel="stylesheet" href="${new URL("./data-type-palette.css", import.meta.url).href}" />
       <aside class="panel" aria-labelledby="palette-title">
         <h2 id="palette-title">Data types</h2>
       </aside>
