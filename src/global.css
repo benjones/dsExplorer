@@ -1,0 +1,23 @@
+:root {
+  color-scheme: dark;
+  --color-page: #101522;
+  --color-panel: #181f30;
+  --color-divider: #30394d;
+  --color-text: #e8edf7;
+  --color-muted: #aeb8cc;
+  --color-surface: #121827;
+  --color-control: #242e46;
+  --color-control-hover: #304262;
+  --color-control-border: #43516e;
+  --color-canvas-text: #8e9ab4;
+  --color-drop: #1b2a44;
+  --color-drop-border: #7ca5ee;
+  --color-item-fill: #263b5c;
+  --color-item-stroke: #a9c7ff;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { min-height: 100%; margin: 0; }
+
+body { background: var(--color-page); color: var(--color-text); }

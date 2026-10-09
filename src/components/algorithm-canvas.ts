@@ -1,17 +1,117 @@
+import { createPlaceholderIcon, PALETTE_ENTRY_MIME } from "./data-type-palette-entry.js";
+
 export class AlgorithmCanvas extends HTMLElement {
+  private activeItem?: { icon: SVGSVGElement; pointerId: number; offsetX: number; offsetY: number };
+
   connectedCallback(): void {
-    this.innerHTML = `
+    const root = this.shadowRoot ?? this.attachShadow({ mode: "open" });
+    root.innerHTML = `
+      <style>
+        :host, *, *::before, *::after { box-sizing: border-box; }
+        :host { display: block; }
+        .panel { display: flex; flex-direction: column; height: 100%; gap: 1rem; padding: 1rem; background: var(--color-panel); }
+        .heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        h1 { margin: 0; font-size: 1rem; }
+        .heading span { color: var(--color-muted); font-size: 0.85rem; }
+        .canvas { width: 100%; min-height: 0; flex: 1; color: var(--color-canvas-text); touch-action: none; }
+        .canvas-border { fill: var(--color-surface); stroke: var(--color-control-border); stroke-dasharray: 5 5; }
+        .canvas-hint { fill: var(--color-muted); }
+        .canvas.is-drop-target .canvas-border { fill: var(--color-drop); stroke: var(--color-drop-border); }
+        .canvas-item { cursor: grab; }
+        .canvas-item rect { fill: var(--color-item-fill); stroke: var(--color-item-stroke); stroke-width: 1.25; }
+        .canvas-item path { fill: none; stroke: var(--color-item-stroke); stroke-width: 1.6; stroke-linecap: round; }
+        .canvas-item.is-dragging { cursor: grabbing; }
+      </style>
       <section class="panel" aria-labelledby="canvas-title">
         <div class="heading">
           <h1 id="canvas-title">Algorithm canvas</h1>
           <span>Choose a data type to begin</span>
         </div>
-        <svg viewBox="0 0 800 440" role="img" aria-label="Empty algorithm canvas">
+        <svg class="canvas" viewBox="0 0 800 440" role="img" aria-label="Algorithm canvas">
           <rect x="1" y="1" width="798" height="438" rx="10" class="canvas-border"></rect>
-          <text x="400" y="220" text-anchor="middle">Your visualization will appear here</text>
+          <text class="canvas-hint" x="400" y="220" text-anchor="middle">Drag a data type here</text>
+          <g class="canvas-items"></g>
         </svg>
       </section>
     `;
+    const canvas = root.querySelector<SVGSVGElement>(".canvas")!;
+    canvas.addEventListener("dragover", (event) => {
+      if (!event.dataTransfer?.types.includes(PALETTE_ENTRY_MIME)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+      canvas.classList.add("is-drop-target");
+    });
+    canvas.addEventListener("dragleave", () => canvas.classList.remove("is-drop-target"));
+    canvas.addEventListener("drop", (event) => this.dropEntry(event, canvas));
+    canvas.addEventListener("pointerdown", (event) => this.startItemDrag(event, canvas));
+    canvas.addEventListener("pointermove", (event) => this.moveItem(event, canvas));
+    canvas.addEventListener("pointerup", (event) => this.endItemDrag(event, canvas));
+    canvas.addEventListener("pointercancel", (event) => this.endItemDrag(event, canvas));
+  }
+
+  private dropEntry(event: DragEvent, canvas: SVGSVGElement): void {
+    if (!event.dataTransfer?.types.includes(PALETTE_ENTRY_MIME)) return;
+    event.preventDefault();
+    canvas.classList.remove("is-drop-target");
+
+    const icon = createPlaceholderIcon();
+    icon.style.color = "var(--color-item-stroke)";
+    icon.setAttribute("width", "56");
+    icon.setAttribute("height", "56");
+    icon.classList.add("canvas-item");
+    this.positionItem(icon, event, canvas);
+    this.shadowRoot!.querySelector<SVGGElement>(".canvas-items")!.append(icon);
+    this.shadowRoot!.querySelector(".canvas-hint")?.remove();
+  }
+
+  private startItemDrag(event: PointerEvent, canvas: SVGSVGElement): void {
+    if (!(event.target instanceof Element)) return;
+    const icon = event.target.closest<SVGSVGElement>(".canvas-item");
+    if (!icon || event.button !== 0) return;
+    const pointer = this.canvasPoint(event, canvas);
+    const itemX = Number.parseFloat(icon.getAttribute("x") ?? "0");
+    const itemY = Number.parseFloat(icon.getAttribute("y") ?? "0");
+    this.activeItem = {
+      icon,
+      pointerId: event.pointerId,
+      offsetX: pointer.x - itemX,
+      offsetY: pointer.y - itemY,
+    };
+    icon.classList.add("is-dragging");
+    canvas.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  }
+
+  private moveItem(event: PointerEvent, canvas: SVGSVGElement): void {
+    if (!this.activeItem || event.pointerId !== this.activeItem.pointerId) return;
+    this.positionItem(this.activeItem.icon, event, canvas, this.activeItem.offsetX, this.activeItem.offsetY);
+  }
+
+  private endItemDrag(event: PointerEvent, canvas: SVGSVGElement): void {
+    if (!this.activeItem || event.pointerId !== this.activeItem.pointerId) return;
+    this.activeItem.icon.classList.remove("is-dragging");
+    this.activeItem = undefined;
+    if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+  }
+
+  private positionItem(
+    icon: SVGSVGElement,
+    event: MouseEvent,
+    canvas: SVGSVGElement,
+    offsetX = 28,
+    offsetY = 28,
+  ): void {
+    const pointer = this.canvasPoint(event, canvas);
+    icon.setAttribute("x", String(pointer.x - offsetX));
+    icon.setAttribute("y", String(pointer.y - offsetY));
+  }
+
+  private canvasPoint(event: MouseEvent, canvas: SVGSVGElement): { x: number; y: number } {
+    const bounds = canvas.getBoundingClientRect();
+    return {
+      x: ((event.clientX - bounds.left) / bounds.width) * 800,
+      y: ((event.clientY - bounds.top) / bounds.height) * 440,
+    };
   }
 }
 

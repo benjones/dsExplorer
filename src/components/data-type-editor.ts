@@ -1,6 +1,18 @@
 export class DataTypeEditor extends HTMLElement {
   connectedCallback(): void {
-    this.innerHTML = `
+    const root = this.shadowRoot ?? this.attachShadow({ mode: "open" });
+    root.innerHTML = `
+      <style>
+        :host, *, *::before, *::after { box-sizing: border-box; }
+        :host { display: block; }
+        .panel { height: 100%; padding: 1rem; background: var(--color-panel); }
+        .heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        h2 { margin: 0; font-size: 1rem; }
+        button { border: 1px solid var(--color-control-border); border-radius: 0.35rem; padding: 0.5rem 0.65rem; color: inherit; background: var(--color-control); font: inherit; }
+        button:hover { background: var(--color-control-hover); cursor: pointer; }
+        label { display: grid; gap: 0.4rem; margin-top: 0.75rem; color: var(--color-muted); font-size: 0.85rem; }
+        textarea { width: 100%; height: 5.6rem; resize: vertical; border: 1px solid var(--color-control-border); border-radius: 0.35rem; padding: 0.55rem; color: var(--color-text); background: var(--color-surface); font: 0.85rem ui-monospace, monospace; }
+      </style>
       <section class="panel" aria-labelledby="editor-title">
         <div class="heading">
           <h2 id="editor-title">Data type editor</h2>

@@ -15,11 +15,25 @@ ROOT = Path(__file__).resolve().parent
 DIST = ROOT / "dist"
 
 
-def compile_once() -> None:
-    subprocess.run(["tsc", "--project", "tsconfig.json"], cwd=ROOT, check=True)
+def copy_static_files() -> None:
     DIST.mkdir(exist_ok=True)
     shutil.copy2(ROOT / "index.html", DIST / "index.html")
-    shutil.copy2(ROOT / "src" / "styles.css", DIST / "styles.css")
+    shutil.copy2(ROOT / "src" / "global.css", DIST / "global.css")
+
+
+class DevelopmentRequestHandler(SimpleHTTPRequestHandler):
+    def do_GET(self) -> None:
+        copy_static_files()
+        super().do_GET()
+
+    def do_HEAD(self) -> None:
+        copy_static_files()
+        super().do_HEAD()
+
+
+def compile_once() -> None:
+    subprocess.run(["tsc", "--project", "tsconfig.json"], cwd=ROOT, check=True)
+    copy_static_files()
 
 
 def main() -> None:
@@ -28,7 +42,7 @@ def main() -> None:
     args = parser.parse_args()
 
     compile_once()
-    handler = functools.partial(SimpleHTTPRequestHandler, directory=str(DIST))
+    handler = functools.partial(DevelopmentRequestHandler, directory=str(DIST))
     server = ThreadingHTTPServer(("", args.port), handler)
 
     print(f"Serving {DIST} at http://localhost:{args.port}", flush=True)
