@@ -14,6 +14,7 @@
   --color-drop-border: #7ca5ee;
   --color-item-fill: #263b5c;
   --color-item-stroke: #a9c7ff;
+  --color-array: #172238;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
