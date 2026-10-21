@@ -1,5 +1,6 @@
 import { updateSvgViewport } from "./svg-viewport.js";
-import type { DataTypeElement } from "./data-type-diagram.js";
+import { createDataTypeBlock, DATA_TYPE_BLOCK_WIDTH } from "./data-type-block.js";
+import type { DataTypeBlock, DataTypeField } from "./data-type-diagram.js";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const BLOCK_MIME = "application/x-ds-explorer-type-editor-block";
@@ -9,7 +10,7 @@ const ARRAY_PADDING = 24;
 const BLOCK_GAP = 16;
 const EMPTY_PLACEHOLDER_WIDTH = 200;
 
-type BlockKind = DataTypeElement;
+type BlockKind = DataTypeBlock;
 
 function isBlockKind(value: string): value is BlockKind {
   return value === "value" || value === "array" || value === "reference";
@@ -22,7 +23,7 @@ function svgElement(name: string, attributes: Record<string, string>): SVGElemen
 }
 
 export class DataTypeEditor extends HTMLElement {
-  private readonly elements: BlockKind[] = [];
+  private readonly elements: DataTypeField[] = [];
   private dropIndex?: number;
   private previewKind?: BlockKind;
   private reorder?: { pointerId: number; sourceIndex: number; targetIndex: number; pointerX: number; pointerY: number };
@@ -31,6 +32,7 @@ export class DataTypeEditor extends HTMLElement {
   private viewportY = 0;
   private viewportWidth = 800;
   private viewportHeight = CANVAS_HEIGHT;
+  private viewportScale = 1;
   private arrayWidth = 620;
   private emptyArrayWidth = EMPTY_PLACEHOLDER_WIDTH;
 
@@ -48,6 +50,7 @@ export class DataTypeEditor extends HTMLElement {
             <rect class="array-container" x="90" y="72" width="620" height="96" rx="10"></rect>
             <text class="array-placeholder" x="400" y="126" text-anchor="middle">Drop elements here</text>
             <g class="editor-blocks"></g>
+            <g class="editor-field-labels"></g>
             <foreignObject class="array-name-editor" x="102" y="78" width="596" height="18">
               <input id="data-type-name" xmlns="http://www.w3.org/1999/xhtml" type="text" aria-label="Data type name" placeholder="Data type name" />
             </foreignObject>
@@ -77,9 +80,11 @@ export class DataTypeEditor extends HTMLElement {
       this.dispatchEvent(new CustomEvent("save-data-type", {
         bubbles: true,
         composed: true,
-        detail: { name, elements: [...this.elements] },
+        detail: { name, elements: this.elements.map((field) => ({ ...field })), editorScale: this.viewportScale },
       }));
       nameInput.value = "";
+      this.elements.splice(0);
+      this.updateViewport(canvas);
       nameInput.focus();
     });
     root.querySelectorAll<HTMLElement>("[data-block]").forEach((entry) => {
@@ -150,7 +155,7 @@ export class DataTypeEditor extends HTMLElement {
     const index = this.insertionIndex(event, canvas);
     if (!isBlockKind(kind) || index === undefined) return;
     event.preventDefault();
-    this.elements.splice(index, 0, kind);
+    this.elements.splice(index, 0, { kind, label: "" });
     this.dropIndex = undefined;
     this.previewKind = undefined;
     canvas.classList.remove("is-drop-target");
@@ -178,29 +183,30 @@ export class DataTypeEditor extends HTMLElement {
     if (this.reorder) {
       const { sourceIndex } = this.reorder;
       const layout = this.reorderLayout();
-      const ghost = this.createBlock(this.elements[sourceIndex], positions[layout.ghostIndex], sourceIndex);
-      const preview = this.createBlock(this.elements[sourceIndex], this.reorder.pointerX, -1, this.reorder.pointerY);
+      const ghost = this.createBlock(this.elements[sourceIndex].kind, positions[layout.ghostIndex], sourceIndex);
+      const preview = this.createBlock(this.elements[sourceIndex].kind, this.reorder.pointerX, -1, this.reorder.pointerY);
       ghost.classList.add("is-ghost");
       preview.classList.add("is-drag-preview");
       nodes.push(this.insertionMarker(positions[layout.gapIndex]));
-      this.elements.forEach((kind, index) => {
+      this.elements.forEach((field, index) => {
         if (index === sourceIndex) return;
         const slot = index + (index >= layout.gapIndex ? 1 : 0);
-        nodes.push(this.createBlock(kind, positions[slot], index));
+        nodes.push(this.createBlock(field.kind, positions[slot], index));
       });
       nodes.push(preview);
       nodes.push(ghost);
     } else if (this.dropIndex !== undefined) {
       const markerX = positions[this.dropIndex];
       nodes.push(this.insertionMarker(markerX));
-      this.elements.forEach((kind, index) => {
+      this.elements.forEach((field, index) => {
         const slot = index >= this.dropIndex! ? index + 1 : index;
-        nodes.push(this.createBlock(kind, positions[slot], index));
+        nodes.push(this.createBlock(field.kind, positions[slot], index));
       });
     } else {
-      this.elements.forEach((kind, index) => nodes.push(this.createBlock(kind, positions[index], index)));
+      this.elements.forEach((field, index) => nodes.push(this.createBlock(field.kind, positions[index], index)));
     }
     group.replaceChildren(...nodes);
+    this.renderFieldLabels(canvas, positions);
     canvas.querySelector(".array-placeholder")?.setAttribute("visibility", this.elements.length === 0 ? "visible" : "hidden");
   }
 
@@ -208,9 +214,38 @@ export class DataTypeEditor extends HTMLElement {
     return svgElement("line", { class: "insertion-marker", x1: String(x), x2: String(x), y1: "86", y2: "154" });
   }
 
+  private renderFieldLabels(canvas: SVGSVGElement, positions: number[]): void {
+    const group = canvas.querySelector<SVGGElement>(".editor-field-labels")!;
+    if (this.reorder || this.dropIndex !== undefined) {
+      group.replaceChildren();
+      return;
+    }
+    const labels = this.elements.map((field, index) => {
+      const width = this.blockWidth(field.kind);
+      const editor = svgElement("foreignObject", {
+        class: "field-label-editor",
+        x: String(positions[index] - width / 2),
+        y: "145",
+        width: String(width),
+        height: "17",
+      }) as SVGForeignObjectElement;
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = field.label;
+      input.placeholder = "Label";
+      input.setAttribute("aria-label", `Label for field ${index + 1}`);
+      input.addEventListener("input", () => {
+        this.elements[index].label = input.value;
+      });
+      editor.append(input);
+      return editor;
+    });
+    group.replaceChildren(...labels);
+  }
+
   private previewSlots(): BlockKind[] {
     if (this.reorder) return this.reorderLayout().kinds;
-    const slots = [...this.elements];
+    const slots = this.elements.map((field) => field.kind);
     if (this.dropIndex !== undefined && this.previewKind) slots.splice(this.dropIndex, 0, this.previewKind);
     return slots;
   }
@@ -218,8 +253,8 @@ export class DataTypeEditor extends HTMLElement {
   private reorderLayout(): { kinds: BlockKind[]; gapIndex: number; ghostIndex: number } {
     const { sourceIndex, targetIndex } = this.reorder!;
     const gapIndex = targetIndex > sourceIndex ? targetIndex + 1 : targetIndex;
-    const kinds = [...this.elements];
-    kinds.splice(gapIndex, 0, this.elements[sourceIndex]);
+    const kinds = this.elements.map((field) => field.kind);
+    kinds.splice(gapIndex, 0, this.elements[sourceIndex].kind);
     return {
       kinds,
       gapIndex,
@@ -228,7 +263,8 @@ export class DataTypeEditor extends HTMLElement {
   }
 
   private slotPositions(kinds: BlockKind[]): number[] {
-    let cursor = this.arrayLeft + ARRAY_PADDING;
+    const contentWidth = kinds.reduce((total, kind) => total + this.blockWidth(kind), 0) + Math.max(0, kinds.length - 1) * BLOCK_GAP;
+    let cursor = this.arrayLeft + (this.arrayWidth - contentWidth) / 2;
     return kinds.map((kind) => {
       const width = this.blockWidth(kind);
       const x = cursor + width / 2;
@@ -248,37 +284,13 @@ export class DataTypeEditor extends HTMLElement {
   }
 
   private blockWidth(kind: BlockKind): number {
-    if (kind === "array") return 152;
-    if (kind === "reference") return 76;
-    return 56;
+    return DATA_TYPE_BLOCK_WIDTH[kind];
   }
 
   private createBlock(kind: BlockKind, x: number, index: number, y = ARRAY_Y): SVGElement {
-    const block = svgElement("g", {
-      class: `editor-block editor-block-${kind}`,
-      transform: `translate(${x} ${y})`,
-      "data-index": String(index),
-    });
-    if (kind === "value") {
-      block.append(
-        svgElement("rect", { x: "-28", y: "-22", width: "56", height: "44", rx: "5" }),
-        svgElement("text", { x: "0", y: "8", "text-anchor": "middle" }),
-      );
-      block.querySelector("text")!.textContent = "?";
-    } else if (kind === "array") {
-      block.append(svgElement("rect", { x: "-76", y: "-22", width: "152", height: "44", rx: "5" }));
-      [-51.5, -32.5, -13.5, 5.5, 27.5, 51.5].forEach((x) => {
-        block.append(svgElement("line", { class: "array-divider", x1: String(x), x2: String(x), y1: "-22", y2: "22" }));
-      });
-      ["1", "2", "…", "3", "…", "n−1", "n"].forEach((label, index) => {
-        const positions = [-61, -42, -23, -4, 15, 40, 63];
-        const text = svgElement("text", { x: String(positions[index]), y: "5", "text-anchor": "middle" });
-        text.textContent = label;
-        block.append(text);
-      });
-    } else {
-      block.append(svgElement("rect", { x: "-38", y: "-22", width: "76", height: "44", rx: "5" }));
-    }
+    const block = createDataTypeBlock(kind, x, y);
+    block.classList.add("editor-block", `editor-block-${kind}`);
+    block.dataset.index = String(index);
     return block;
   }
 
@@ -369,6 +381,7 @@ export class DataTypeEditor extends HTMLElement {
     this.viewportWidth = viewport.width;
     this.viewportHeight = viewport.height;
     this.viewportY = viewport.y;
+    this.viewportScale = viewport.scale;
     this.emptyArrayWidth = EMPTY_PLACEHOLDER_WIDTH / viewport.scale;
     canvas.querySelector(".canvas-border")?.setAttribute("x", "1");
     canvas.querySelector(".canvas-border")?.setAttribute("width", String(this.viewportWidth - 2));

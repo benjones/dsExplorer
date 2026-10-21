@@ -19,10 +19,10 @@ class DsExplorer extends HTMLElement {
     `;
     const workspace = root.querySelector<HTMLElement>(".workspace")!;
     const splitter = root.querySelector<HTMLElement>(".horizontal-splitter")!;
-    const palette = root.querySelector<HTMLElement & { addDataType(dataType: SavedDataType): void }>("data-type-palette")!;
+    const palette = root.querySelector<HTMLElement & { addDataType(dataType: SavedDataType, editorScale?: number): void }>("data-type-palette")!;
     root.querySelector("data-type-editor")!.addEventListener("save-data-type", (event) => {
-      const dataType = (event as CustomEvent<SavedDataType>).detail;
-      palette.addDataType(dataType);
+      const { editorScale, ...dataType } = (event as CustomEvent<SavedDataType & { editorScale: number }>).detail;
+      palette.addDataType(dataType, editorScale);
     });
     splitter.addEventListener("pointerdown", (event) => this.startResize(event, splitter));
     splitter.addEventListener("pointermove", (event) => this.resize(event, workspace));

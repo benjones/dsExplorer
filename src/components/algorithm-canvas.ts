@@ -7,6 +7,7 @@ export class AlgorithmCanvas extends HTMLElement {
   private resizeObserver?: ResizeObserver;
   private viewportX = 0;
   private viewportWidth = 800;
+  private viewportScale = 1;
 
   connectedCallback(): void {
     const root = this.shadowRoot ?? this.attachShadow({ mode: "open" });
@@ -52,7 +53,7 @@ export class AlgorithmCanvas extends HTMLElement {
     event.preventDefault();
     canvas.classList.remove("is-drop-target");
 
-    let dataType: SavedDataType;
+    let dataType: SavedDataType & { editorScale?: number };
     try {
       dataType = JSON.parse(event.dataTransfer.getData(PALETTE_ENTRY_MIME)) as SavedDataType;
     } catch {
@@ -60,10 +61,14 @@ export class AlgorithmCanvas extends HTMLElement {
     }
     if (!dataType || typeof dataType.name !== "string" || !Array.isArray(dataType.elements)) return;
     const icon = createDataTypeDiagram(dataType);
-    icon.setAttribute("width", "160");
-    icon.setAttribute("height", "96");
+    const editorScale = typeof dataType.editorScale === "number" && Number.isFinite(dataType.editorScale) && dataType.editorScale > 0
+      ? dataType.editorScale
+      : 1;
+    const screenHeight = 96 * editorScale;
+    icon.dataset.screenHeight = String(screenHeight);
+    this.setIconSize(icon, screenHeight);
     icon.classList.add("canvas-item");
-    this.positionItem(icon, event, canvas);
+    this.positionItem(icon, event, canvas, Number(icon.getAttribute("width")) / 2, Number(icon.getAttribute("height")) / 2);
     this.shadowRoot!.querySelector<SVGGElement>(".canvas-items")!.append(icon);
     this.shadowRoot!.querySelector(".canvas-hint")?.remove();
   }
@@ -110,6 +115,13 @@ export class AlgorithmCanvas extends HTMLElement {
     icon.setAttribute("y", String(pointer.y - offsetY));
   }
 
+  private setIconSize(icon: SVGSVGElement, screenHeight: number): void {
+    const height = screenHeight / this.viewportScale;
+    const viewBox = icon.viewBox.baseVal;
+    icon.setAttribute("height", String(height));
+    icon.setAttribute("width", String(height * (viewBox.width / viewBox.height)));
+  }
+
   private canvasPoint(event: MouseEvent, canvas: SVGSVGElement): { x: number; y: number } {
     const bounds = canvas.getBoundingClientRect();
     return {
@@ -123,6 +135,11 @@ export class AlgorithmCanvas extends HTMLElement {
     if (!viewport) return;
     this.viewportWidth = viewport.width;
     this.viewportX = viewport.x;
+    this.viewportScale = viewport.scale;
+    canvas.querySelectorAll<SVGSVGElement>(".canvas-item").forEach((icon) => {
+      const screenHeight = Number(icon.dataset.screenHeight);
+      if (Number.isFinite(screenHeight)) this.setIconSize(icon, screenHeight);
+    });
     canvas.querySelector(".canvas-border")?.setAttribute("x", String(this.viewportX + 1));
     canvas.querySelector(".canvas-border")?.setAttribute("width", String(this.viewportWidth - 2));
     const hint = canvas.querySelector(".canvas-hint");
