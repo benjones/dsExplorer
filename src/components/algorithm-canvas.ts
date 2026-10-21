@@ -1,4 +1,5 @@
-import { createPlaceholderIcon, PALETTE_ENTRY_MIME } from "./data-type-palette-entry.js";
+import { PALETTE_ENTRY_MIME } from "./data-type-palette-entry.js";
+import { createDataTypeDiagram, type SavedDataType } from "./data-type-diagram.js";
 import { updateSvgViewport } from "./svg-viewport.js";
 
 export class AlgorithmCanvas extends HTMLElement {
@@ -51,10 +52,16 @@ export class AlgorithmCanvas extends HTMLElement {
     event.preventDefault();
     canvas.classList.remove("is-drop-target");
 
-    const icon = createPlaceholderIcon();
-    icon.style.color = "var(--color-item-stroke)";
-    icon.setAttribute("width", "56");
-    icon.setAttribute("height", "56");
+    let dataType: SavedDataType;
+    try {
+      dataType = JSON.parse(event.dataTransfer.getData(PALETTE_ENTRY_MIME)) as SavedDataType;
+    } catch {
+      return;
+    }
+    if (!dataType || typeof dataType.name !== "string" || !Array.isArray(dataType.elements)) return;
+    const icon = createDataTypeDiagram(dataType);
+    icon.setAttribute("width", "160");
+    icon.setAttribute("height", "96");
     icon.classList.add("canvas-item");
     this.positionItem(icon, event, canvas);
     this.shadowRoot!.querySelector<SVGGElement>(".canvas-items")!.append(icon);
@@ -95,8 +102,8 @@ export class AlgorithmCanvas extends HTMLElement {
     icon: SVGSVGElement,
     event: MouseEvent,
     canvas: SVGSVGElement,
-    offsetX = 28,
-    offsetY = 28,
+    offsetX = 80,
+    offsetY = 48,
   ): void {
     const pointer = this.canvasPoint(event, canvas);
     icon.setAttribute("x", String(pointer.x - offsetX));

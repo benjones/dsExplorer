@@ -1,11 +1,8 @@
 import "./data-type-palette-entry.js";
+import type { SavedDataType } from "./data-type-diagram.js";
 
 export class DataTypePalette extends HTMLElement {
-  private readonly entries = ["Array", "Linked list", "Stack", "Queue", "Tree", "Graph"].map((title) => {
-    const entry = document.createElement("data-type-palette-entry");
-    entry.setAttribute("title", title);
-    return entry;
-  });
+  private readonly entries: HTMLElement[] = [];
 
   connectedCallback(): void {
     const root = this.shadowRoot ?? this.attachShadow({ mode: "open" });
@@ -16,6 +13,13 @@ export class DataTypePalette extends HTMLElement {
       </aside>
     `;
     root.querySelector(".panel")!.append(...this.entries);
+  }
+
+  addDataType(dataType: SavedDataType): void {
+    const entry = document.createElement("data-type-palette-entry") as HTMLElement & { dataType: SavedDataType };
+    entry.dataType = dataType;
+    this.entries.push(entry);
+    this.shadowRoot?.querySelector(".panel")?.append(entry);
   }
 }
 

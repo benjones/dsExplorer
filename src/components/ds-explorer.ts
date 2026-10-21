@@ -1,6 +1,7 @@
 import "./algorithm-canvas.js";
 import "./data-type-editor.js";
 import "./data-type-palette.js";
+import type { SavedDataType } from "./data-type-diagram.js";
 
 class DsExplorer extends HTMLElement {
   private splitterPointerId?: number;
@@ -18,6 +19,11 @@ class DsExplorer extends HTMLElement {
     `;
     const workspace = root.querySelector<HTMLElement>(".workspace")!;
     const splitter = root.querySelector<HTMLElement>(".horizontal-splitter")!;
+    const palette = root.querySelector<HTMLElement & { addDataType(dataType: SavedDataType): void }>("data-type-palette")!;
+    root.querySelector("data-type-editor")!.addEventListener("save-data-type", (event) => {
+      const dataType = (event as CustomEvent<SavedDataType>).detail;
+      palette.addDataType(dataType);
+    });
     splitter.addEventListener("pointerdown", (event) => this.startResize(event, splitter));
     splitter.addEventListener("pointermove", (event) => this.resize(event, workspace));
     splitter.addEventListener("pointerup", (event) => this.endResize(event, splitter));

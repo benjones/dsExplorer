@@ -13,7 +13,8 @@ button {
   background: var(--color-control);
   text-align: left;
   font: inherit;
+
+  &:hover { background: var(--color-control-hover); cursor: grab; }
 }
 
-button:hover { background: var(--color-control-hover); cursor: grab; }
-svg { width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-width: 1.6; }
+svg { flex: 0 0 auto; width: 4rem; height: 2.5rem; }

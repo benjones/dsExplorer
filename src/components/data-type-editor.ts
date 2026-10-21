@@ -1,4 +1,5 @@
 import { updateSvgViewport } from "./svg-viewport.js";
+import type { DataTypeElement } from "./data-type-diagram.js";
 
 const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const BLOCK_MIME = "application/x-ds-explorer-type-editor-block";
@@ -8,7 +9,7 @@ const ARRAY_PADDING = 24;
 const BLOCK_GAP = 16;
 const EMPTY_PLACEHOLDER_WIDTH = 200;
 
-type BlockKind = "value" | "array" | "reference";
+type BlockKind = DataTypeElement;
 
 function isBlockKind(value: string): value is BlockKind {
   return value === "value" || value === "array" || value === "reference";
@@ -40,7 +41,6 @@ export class DataTypeEditor extends HTMLElement {
       <section class="panel" aria-labelledby="editor-title">
         <div class="heading">
           <h2 id="editor-title">Data type editor</h2>
-          <span>Drag blocks into the array</span>
         </div>
         <div class="editor-layout">
           <svg class="editor-canvas" viewBox="0 0 800 240" preserveAspectRatio="xMidYMid meet" role="application" aria-label="Data type editor array">
@@ -48,18 +48,40 @@ export class DataTypeEditor extends HTMLElement {
             <rect class="array-container" x="90" y="72" width="620" height="96" rx="10"></rect>
             <text class="array-placeholder" x="400" y="126" text-anchor="middle">Drop elements here</text>
             <g class="editor-blocks"></g>
+            <foreignObject class="array-name-editor" x="102" y="78" width="596" height="18">
+              <input id="data-type-name" xmlns="http://www.w3.org/1999/xhtml" type="text" aria-label="Data type name" placeholder="Data type name" />
+            </foreignObject>
           </svg>
           <aside class="block-palette" aria-label="Type editor building blocks">
             <h3>Blocks</h3>
-            <div class="palette-entry" data-block="value"><button class="palette-drag-source" type="button" aria-label="Drag Value block"></button><span>Value</span></div>
-            <div class="palette-entry" data-block="array"><button class="palette-drag-source" type="button" aria-label="Drag Array block"></button><span>Array</span></div>
-            <div class="palette-entry" data-block="reference"><button class="palette-drag-source" type="button" aria-label="Drag Reference block"></button><span>Reference</span></div>
+            <div class="block-options">
+              <div class="palette-entry" data-block="value"><button class="palette-drag-source" type="button" aria-label="Drag Value block"></button><span>Value</span></div>
+              <div class="palette-entry" data-block="array"><button class="palette-drag-source" type="button" aria-label="Drag Array block"></button><span>Array</span></div>
+              <div class="palette-entry" data-block="reference"><button class="palette-drag-source" type="button" aria-label="Drag Reference block"></button><span>Reference</span></div>
+            </div>
+            <button class="add-to-palette" type="button">Add to palette</button>
           </aside>
         </div>
       </section>
     `;
 
     const canvas = root.querySelector<SVGSVGElement>(".editor-canvas")!;
+    const saveButton = root.querySelector<HTMLButtonElement>(".add-to-palette")!;
+    const nameInput = root.querySelector<HTMLInputElement>("#data-type-name")!;
+    saveButton.addEventListener("click", () => {
+      const name = nameInput.value.trim();
+      if (!name) {
+        nameInput.focus();
+        return;
+      }
+      this.dispatchEvent(new CustomEvent("save-data-type", {
+        bubbles: true,
+        composed: true,
+        detail: { name, elements: [...this.elements] },
+      }));
+      nameInput.value = "";
+      nameInput.focus();
+    });
     root.querySelectorAll<HTMLElement>("[data-block]").forEach((entry) => {
       const kind = entry.dataset.block!;
       if (!isBlockKind(kind)) return;
@@ -354,6 +376,9 @@ export class DataTypeEditor extends HTMLElement {
     canvas.querySelector(".canvas-border")?.setAttribute("height", String(this.viewportHeight - 2));
     canvas.querySelector(".array-container")?.setAttribute("x", String(this.arrayLeft));
     canvas.querySelector(".array-container")?.setAttribute("width", String(this.arrayWidth));
+    const nameEditor = canvas.querySelector(".array-name-editor");
+    nameEditor?.setAttribute("x", String(this.arrayLeft + 12));
+    nameEditor?.setAttribute("width", String(Math.max(0, this.arrayWidth - 24)));
     const placeholder = canvas.querySelector(".array-placeholder");
     placeholder?.setAttribute("x", String(this.centerX));
     placeholder?.setAttribute("font-size", String(16 / viewport.scale));
