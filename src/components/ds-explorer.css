@@ -13,8 +13,8 @@
 
 .workspace {
   display: grid;
-  grid-template-areas: "palette canvas" "palette splitter" "palette editor";
-  grid-template-columns: 15rem minmax(0, 1fr);
+  grid-template-areas: "palette canvas history" "palette splitter splitter" "palette editor editor";
+  grid-template-columns: 15rem minmax(0, 1fr) 14rem;
   grid-template-rows: minmax(12rem, 1fr) 0.5rem var(--editor-height);
   gap: 1px;
   height: 100%;
@@ -23,10 +23,12 @@
 
   > data-type-palette { grid-area: palette; }
   > algorithm-canvas { grid-area: canvas; }
+  > history-list { grid-area: history; }
   > .horizontal-splitter { grid-area: splitter; }
   > data-type-editor { grid-area: editor; }
   > data-type-palette,
   > algorithm-canvas,
+  > history-list,
   > data-type-editor { min-width: 0; min-height: 0; }
 }
 
@@ -41,8 +43,8 @@
 
 @media (max-width: 700px) {
   .workspace {
-    grid-template-areas: "palette" "canvas" "splitter" "editor";
+    grid-template-areas: "palette" "canvas" "history" "splitter" "editor";
     grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(20rem, 1fr) 0.5rem var(--editor-height);
+    grid-template-rows: auto minmax(20rem, 1fr) auto 0.5rem var(--editor-height);
   }
 }

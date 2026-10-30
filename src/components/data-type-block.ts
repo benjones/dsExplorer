@@ -1,12 +1,6 @@
-const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+import { svgElement } from "./svg-tools.js";
 
 export type DataTypeBlock = "value" | "array" | "reference";
-
-function svgElement(name: string, attributes: Record<string, string>): SVGElement {
-  const element = document.createElementNS(SVG_NAMESPACE, name);
-  for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, value);
-  return element;
-}
 
 function svgSizeString(value: number, scale: number): string {
   return String(value * scale);
@@ -22,6 +16,7 @@ export function createDataTypeBlock(kind: DataTypeBlock, x: number, y: number, s
   const block = svgElement("g", {
     class: `data-type-block data-type-block-${kind}`,
     transform: `translate(${x} ${y})`,
+    "data-scale": String(scale),
   }) as SVGGElement;
   const rect = (attributes: Record<string, string>) => svgElement("rect", {
     fill: "var(--color-item-fill)",
@@ -43,7 +38,9 @@ export function createDataTypeBlock(kind: DataTypeBlock, x: number, y: number, s
 
   if (kind === "value") {
     block.append(rect({ x: svgSizeString(-28, scale), y: svgSizeString(-22, scale), width: svgSizeString(56, scale), height: svgSizeString(44, scale), rx: svgSizeString(5, scale) }));
-    block.append(text("?", 0, 8, 22));
+    const value = text("?", 0, 8, 22);
+    value.classList.add("value-display");
+    block.append(value);
   } else if (kind === "array") {
     block.append(rect({ x: svgSizeString(-76, scale), y: svgSizeString(-22, scale), width: svgSizeString(152, scale), height: svgSizeString(44, scale), rx: svgSizeString(5, scale) }));
     [-51.5, -32.5, -13.5, 5.5, 27.5, 51.5].forEach((dividerX) => {

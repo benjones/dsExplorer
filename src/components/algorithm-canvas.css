@@ -22,6 +22,20 @@ h1 { margin: 0; font-size: 1rem; }
 }
 .canvas-border { fill: var(--color-surface); stroke: var(--color-control-border); stroke-dasharray: 5 5; }
 .canvas-hint { fill: var(--color-muted); }
+.reference-arrow { fill: none; pointer-events: stroke; }
+.reference-arrow.is-ghost { stroke-dasharray: 5 4; opacity: 0.75; pointer-events: none; }
+.canvas-value-editor input {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  color: var(--color-text);
+  background: transparent;
+  font: 16px system-ui, sans-serif;
+  text-align: center;
+
+  &:focus { outline: 1px solid var(--color-drop-border); outline-offset: 1px; }
+}
 .canvas-item {
   cursor: grab;
   &.is-dragging { cursor: grabbing; }

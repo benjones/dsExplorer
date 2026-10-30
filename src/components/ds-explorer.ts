@@ -1,6 +1,8 @@
 import "./algorithm-canvas.js";
 import "./data-type-editor.js";
 import "./data-type-palette.js";
+import "./history-list.js";
+import type { HistoryEntry, ReferenceUpdateHistoryEntry, ValueUpdateHistoryEntry } from "./history-entry.js";
 import type { SavedDataType } from "./data-type-diagram.js";
 
 class DsExplorer extends HTMLElement {
@@ -13,6 +15,7 @@ class DsExplorer extends HTMLElement {
       <section class="workspace" aria-label="DS Explorer workspace">
         <data-type-palette></data-type-palette>
         <algorithm-canvas></algorithm-canvas>
+        <history-list></history-list>
         <div class="horizontal-splitter" role="separator" aria-label="Resize data type editor" aria-orientation="horizontal" tabindex="0"></div>
         <data-type-editor></data-type-editor>
       </section>
@@ -20,9 +23,20 @@ class DsExplorer extends HTMLElement {
     const workspace = root.querySelector<HTMLElement>(".workspace")!;
     const splitter = root.querySelector<HTMLElement>(".horizontal-splitter")!;
     const palette = root.querySelector<HTMLElement & { addDataType(dataType: SavedDataType, editorScale?: number): void }>("data-type-palette")!;
+    const history = root.querySelector<HTMLElement & { addEntry(entry: HistoryEntry): void }>("history-list")!;
     root.querySelector("data-type-editor")!.addEventListener("save-data-type", (event) => {
       const { editorScale, ...dataType } = (event as CustomEvent<SavedDataType & { editorScale: number }>).detail;
       palette.addDataType(dataType, editorScale);
+    });
+    root.querySelector("algorithm-canvas")!.addEventListener("value-updated", (event) => {
+      const { previousValue, value } = (event as CustomEvent<{ previousValue?: string; value: string }>).detail;
+      const entry: ValueUpdateHistoryEntry = { kind: "update-value", previousValue, value };
+      history.addEntry(entry);
+    });
+    root.querySelector("algorithm-canvas")!.addEventListener("reference-updated", (event) => {
+      const { previousTarget, target } = (event as CustomEvent<{ previousTarget: string | null; target: string | null }>).detail;
+      const entry: ReferenceUpdateHistoryEntry = { kind: "update-reference", previousTarget, target };
+      history.addEntry(entry);
     });
     splitter.addEventListener("pointerdown", (event) => this.startResize(event, splitter));
     splitter.addEventListener("pointermove", (event) => this.resize(event, workspace));
@@ -54,6 +68,7 @@ class DsExplorer extends HTMLElement {
     splitter.classList.remove("is-resizing");
     if (splitter.hasPointerCapture(event.pointerId)) splitter.releasePointerCapture(event.pointerId);
   }
+
 }
 
 customElements.define("ds-explorer", DsExplorer);

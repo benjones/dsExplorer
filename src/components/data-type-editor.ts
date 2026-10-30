@@ -1,8 +1,7 @@
-import { updateSvgViewport } from "./svg-viewport.js";
+import { svgElement, updateSvgViewport } from "./svg-tools.js";
 import { createDataTypeBlock, DATA_TYPE_BLOCK_WIDTH } from "./data-type-block.js";
 import type { DataTypeBlock, DataTypeField } from "./data-type-diagram.js";
 
-const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
 const BLOCK_MIME = "application/x-ds-explorer-type-editor-block";
 const CANVAS_HEIGHT = 240;
 const ARRAY_Y = 120;
@@ -14,12 +13,6 @@ type BlockKind = DataTypeBlock;
 
 function isBlockKind(value: string): value is BlockKind {
   return value === "value" || value === "array" || value === "reference";
-}
-
-function svgElement(name: string, attributes: Record<string, string>): SVGElement {
-  const element = document.createElementNS(SVG_NAMESPACE, name);
-  for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, value);
-  return element;
 }
 
 export class DataTypeEditor extends HTMLElement {

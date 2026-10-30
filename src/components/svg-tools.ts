@@ -1,3 +1,11 @@
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+
+export function svgElement(name: string, attributes: Record<string, string>): SVGElement {
+  const element = document.createElementNS(SVG_NAMESPACE, name);
+  for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, value);
+  return element;
+}
+
 export interface SvgViewport {
   x: number;
   y: number;
