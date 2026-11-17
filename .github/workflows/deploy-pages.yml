@@ -22,6 +22,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: npm install --global typescript@5.9.3
       - run: tsc --project tsconfig.json
       - run: cp index.html dist/index.html
       - run: cp src/global.css dist/global.css
