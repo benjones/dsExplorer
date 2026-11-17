@@ -9,7 +9,10 @@ export class AlgorithmCanvas extends HTMLElement {
     pointerId: number;
     arrow: SVGLineElement;
     previousTarget: { id: string; name: string } | null;
+    start: { x: number; y: number };
+    hasMoved: boolean;
   };
+  private activeValue?: { value: SVGGElement; pointerId: number; start: { x: number; y: number }; hasMoved: boolean };
   private resizeObserver?: ResizeObserver;
   private viewportX = 0;
   private viewportWidth = 800;
@@ -101,7 +104,10 @@ export class AlgorithmCanvas extends HTMLElement {
     }
     const value = event.target.closest<SVGGElement>(".data-type-block-value");
     if (value) {
-      if (!value.querySelector(".canvas-value-editor")) this.startValueEdit(value);
+      if (event.button !== 0 || value.querySelector(".canvas-value-editor")) return;
+      const start = this.canvasPoint(event, canvas);
+      this.activeValue = { value, pointerId: event.pointerId, start, hasMoved: false };
+      canvas.setPointerCapture(event.pointerId);
       event.preventDefault();
       return;
     }
@@ -130,7 +136,18 @@ export class AlgorithmCanvas extends HTMLElement {
     if (this.activeReference && event.pointerId === this.activeReference.pointerId) {
       const pointer = this.canvasPoint(event, canvas);
       const source = this.referencePoint(this.activeReference.reference);
+      this.activeReference.hasMoved ||= this.hasMovedBeyondThreshold(this.activeReference.start, pointer);
       this.setArrowEndpoints(this.activeReference.arrow, source, pointer);
+      this.updateFieldDropTarget(this.activeReference.reference, pointer, canvas);
+      return;
+    }
+    if (this.activeValue && event.pointerId === this.activeValue.pointerId) {
+      const pointer = this.canvasPoint(event, canvas);
+      this.activeValue.hasMoved ||= this.hasMovedBeyondThreshold(this.activeValue.start, pointer);
+      if (this.activeValue.hasMoved) {
+        this.activeValue.value.classList.add("is-content-dragging");
+        this.updateFieldDropTarget(this.activeValue.value, pointer, canvas);
+      }
       return;
     }
     if (!this.activeItem || event.pointerId !== this.activeItem.pointerId) return;
@@ -141,6 +158,10 @@ export class AlgorithmCanvas extends HTMLElement {
   private endItemDrag(event: PointerEvent, canvas: SVGSVGElement): void {
     if (this.activeReference && event.pointerId === this.activeReference.pointerId) {
       this.endReferenceDrag(event, canvas);
+      return;
+    }
+    if (this.activeValue && event.pointerId === this.activeValue.pointerId) {
+      this.endValueDrag(event, canvas);
       return;
     }
     if (!this.activeItem || event.pointerId !== this.activeItem.pointerId) return;
@@ -176,16 +197,25 @@ export class AlgorithmCanvas extends HTMLElement {
     arrow.classList.add("is-ghost");
     this.setArrowEndpoints(arrow, source, source);
     this.setReferenceValue(reference, "");
-    this.activeReference = { reference, pointerId: event.pointerId, arrow, previousTarget };
+    this.activeReference = { reference, pointerId: event.pointerId, arrow, previousTarget, start: this.canvasPoint(event, canvas), hasMoved: false };
     canvas.setPointerCapture(event.pointerId);
     event.preventDefault();
   }
 
   private endReferenceDrag(event: PointerEvent, canvas: SVGSVGElement): void {
     const activeReference = this.activeReference!;
-    const target = this.itemAtCanvasPoint(this.canvasPoint(event, canvas), canvas);
+    const point = this.canvasPoint(event, canvas);
+    const targetReference = this.fieldAtCanvasPoint(point, canvas, "reference");
+    const target = this.itemAtCanvasPoint(point, canvas);
     const sourceItem = activeReference.reference.closest<SVGSVGElement>(".canvas-item");
-    if (target && target !== sourceItem) {
+    this.clearFieldDropTargets(canvas);
+    if (!activeReference.hasMoved) {
+      this.restoreReference(activeReference, canvas);
+    } else if (targetReference && targetReference !== activeReference.reference) {
+      this.copyReference(activeReference, targetReference, canvas);
+    } else if (targetReference === activeReference.reference) {
+      this.restoreReference(activeReference, canvas);
+    } else if (target && target !== sourceItem) {
       activeReference.arrow.classList.remove("is-ghost");
       activeReference.arrow.dataset.targetItemId = target.dataset.itemId;
       this.setArrowEndpoints(activeReference.arrow, this.referencePoint(activeReference.reference), this.itemConnectionPoint(target, this.referencePoint(activeReference.reference)));
@@ -197,6 +227,52 @@ export class AlgorithmCanvas extends HTMLElement {
     }
     this.activeReference = undefined;
     if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+  }
+
+  private endValueDrag(event: PointerEvent, canvas: SVGSVGElement): void {
+    const activeValue = this.activeValue!;
+    const target = activeValue.hasMoved ? this.fieldAtCanvasPoint(this.canvasPoint(event, canvas), canvas, "value") : undefined;
+    activeValue.value.classList.remove("is-content-dragging");
+    this.clearFieldDropTargets(canvas);
+    if (target && target !== activeValue.value) {
+      this.setCanvasValue(target, activeValue.value.dataset.value ?? "");
+    } else if (!activeValue.hasMoved) {
+      this.startValueEdit(activeValue.value);
+    }
+    this.activeValue = undefined;
+    if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+  }
+
+  private restoreReference(activeReference: NonNullable<AlgorithmCanvas["activeReference"]>, canvas: SVGSVGElement): void {
+    if (activeReference.previousTarget) {
+      const target = this.targetForId(activeReference.previousTarget.id, canvas);
+      if (target) {
+        activeReference.arrow.classList.remove("is-ghost");
+        activeReference.arrow.dataset.targetItemId = target.dataset.itemId;
+        this.setArrowEndpoints(activeReference.arrow, this.referencePoint(activeReference.reference), this.itemConnectionPoint(target, this.referencePoint(activeReference.reference)));
+        return;
+      }
+    }
+    activeReference.arrow.remove();
+    this.setReferenceValue(activeReference.reference, "null");
+  }
+
+  private copyReference(activeReference: NonNullable<AlgorithmCanvas["activeReference"]>, destination: SVGGElement, canvas: SVGSVGElement): void {
+    this.restoreReference(activeReference, canvas);
+    const previousTarget = this.referenceTarget(destination, canvas);
+    const target = activeReference.previousTarget ? this.targetForId(activeReference.previousTarget.id, canvas) : undefined;
+    if (target) {
+      const arrow = this.createReferenceArrow(destination, canvas);
+      arrow.dataset.targetItemId = target.dataset.itemId;
+      this.setReferenceValue(destination, "");
+      const source = this.referencePoint(destination);
+      this.setArrowEndpoints(arrow, source, this.itemConnectionPoint(target, source));
+      this.recordReferenceUpdate(previousTarget, this.itemTarget(target));
+    } else {
+      this.createReferenceArrow(destination, canvas).remove();
+      this.setReferenceValue(destination, "null");
+      this.recordReferenceUpdate(previousTarget, null);
+    }
   }
 
   private createReferenceArrow(reference: SVGGElement, canvas: SVGSVGElement): SVGLineElement {
@@ -366,6 +442,47 @@ export class AlgorithmCanvas extends HTMLElement {
       const height = Number(item.getAttribute("height"));
       return point.x >= x && point.x <= x + width && point.y >= y && point.y <= y + height;
     });
+  }
+
+  private fieldAtCanvasPoint(
+    point: { x: number; y: number },
+    canvas: SVGSVGElement,
+    kind: "value" | "reference",
+  ): SVGGElement | undefined {
+    const items = [...canvas.querySelectorAll<SVGSVGElement>(".canvas-item")].reverse();
+    for (const item of items) {
+      const itemScale = Number(item.getAttribute("width")) / item.viewBox.baseVal.width;
+      const itemX = Number(item.getAttribute("x"));
+      const itemY = Number(item.getAttribute("y"));
+      const fields = [...item.querySelectorAll<SVGGElement>(`.data-type-block-${kind}`)].reverse();
+      for (const field of fields) {
+        const transform = field.getAttribute("transform") ?? "";
+        const match = /translate\(([^ ]+) ([^)]+)\)/.exec(transform);
+        if (!match) continue;
+        const scale = Number(field.dataset.scale) || 1;
+        const centerX = itemX + Number(match[1]) * itemScale;
+        const centerY = itemY + Number(match[2]) * itemScale;
+        const width = (kind === "value" ? 56 : 76) * scale * itemScale;
+        const height = 44 * scale * itemScale;
+        if (Math.abs(point.x - centerX) <= width / 2 && Math.abs(point.y - centerY) <= height / 2) return field;
+      }
+    }
+    return undefined;
+  }
+
+  private updateFieldDropTarget(source: SVGGElement, point: { x: number; y: number }, canvas: SVGSVGElement): void {
+    const kind = source.classList.contains("data-type-block-value") ? "value" : "reference";
+    const target = this.fieldAtCanvasPoint(point, canvas, kind);
+    this.clearFieldDropTargets(canvas);
+    if (target && target !== source) target.classList.add("is-content-drop-target");
+  }
+
+  private clearFieldDropTargets(canvas: SVGSVGElement): void {
+    canvas.querySelectorAll<SVGGElement>(".is-content-drop-target").forEach((field) => field.classList.remove("is-content-drop-target"));
+  }
+
+  private hasMovedBeyondThreshold(start: { x: number; y: number }, end: { x: number; y: number }): boolean {
+    return Math.hypot(end.x - start.x, end.y - start.y) > 4;
   }
 
   private canvasPoint(event: MouseEvent, canvas: SVGSVGElement): { x: number; y: number } {

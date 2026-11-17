@@ -40,3 +40,10 @@ h1 { margin: 0; font-size: 1rem; }
   cursor: grab;
   &.is-dragging { cursor: grabbing; }
 }
+.data-type-block-value,
+.data-type-block-reference { cursor: pointer; }
+.data-type-block.is-content-dragging { opacity: 0.6; }
+.data-type-block.is-content-drop-target rect {
+  stroke: var(--color-drop-border);
+  stroke-width: 2.5;
+}
