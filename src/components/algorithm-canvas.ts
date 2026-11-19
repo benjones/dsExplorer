@@ -26,9 +26,9 @@ export class AlgorithmCanvas extends HTMLElement {
       <section class="panel" aria-labelledby="canvas-title">
         <div class="heading">
           <h1 id="canvas-title">Algorithm canvas</h1>
-          <span>Choose a data type to begin</span>
+          <span>Drag data types here · Click above an item to label it</span>
         </div>
-        <svg class="canvas" viewBox="0 0 800 440" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Algorithm canvas">
+        <svg class="canvas" viewBox="0 0 800 440" preserveAspectRatio="xMidYMid meet" role="group" aria-label="Algorithm canvas">
           <defs>
             <marker id="reference-arrowhead" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0L8 4L0 8z" fill="var(--color-drop-border)"></path></marker>
           </defs>
@@ -82,6 +82,8 @@ export class AlgorithmCanvas extends HTMLElement {
     icon.dataset.screenHeight = String(screenHeight);
     icon.dataset.itemId = String(this.nextItemId++);
     icon.dataset.dataTypeName = dataType.name;
+    icon.setAttribute("role", "group");
+    this.addItemLabel(icon);
     this.setIconSize(icon, screenHeight);
     icon.querySelectorAll<SVGGElement>(".data-type-block-reference").forEach((reference) => {
       reference.dataset.referenceId = `${icon.dataset.itemId}:${reference.dataset.fieldIndex}`;
@@ -95,7 +97,7 @@ export class AlgorithmCanvas extends HTMLElement {
 
   private startItemDrag(event: PointerEvent, canvas: SVGSVGElement): void {
     if (!(event.target instanceof Element)) return;
-    if (event.target instanceof HTMLInputElement) return;
+    if (event.target instanceof HTMLInputElement || event.target.closest(".canvas-item-label")) return;
     const arrow = event.target.closest<SVGLineElement>(".reference-arrow");
     if (arrow) {
       this.resetReferenceArrow(arrow, canvas);
@@ -187,6 +189,63 @@ export class AlgorithmCanvas extends HTMLElement {
     const viewBox = icon.viewBox.baseVal;
     icon.setAttribute("height", String(height));
     icon.setAttribute("width", String(height * (viewBox.width / viewBox.height)));
+  }
+
+  private addItemLabel(icon: SVGSVGElement): void {
+    const label = svgElement("foreignObject", {
+      class: "canvas-item-label",
+      x: "4",
+      y: "-28",
+      width: String(icon.viewBox.baseVal.width - 8),
+      height: "24",
+    });
+    const button = document.createElement("button");
+    button.type = "button";
+    label.append(button);
+    icon.append(label);
+    let hideTimer: number | undefined;
+    icon.addEventListener("pointerenter", () => {
+      window.clearTimeout(hideTimer);
+      icon.classList.add("is-label-visible");
+    });
+    icon.addEventListener("pointerleave", () => {
+      window.clearTimeout(hideTimer);
+      hideTimer = window.setTimeout(() => icon.classList.remove("is-label-visible"), 2000);
+    });
+    const update = () => {
+      const text = icon.dataset.label ?? "";
+      button.textContent = text || "Add label";
+      button.classList.toggle("is-empty", !text);
+      button.title = text ? `Edit label: ${text}` : "Add label";
+      button.setAttribute("aria-label", text ? `Edit item label: ${text}` : `Label ${icon.dataset.dataTypeName} item`);
+      icon.setAttribute("aria-label", text ? `${text}: ${icon.dataset.dataTypeName}` : icon.dataset.dataTypeName!);
+    };
+    button.addEventListener("click", () => {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = icon.dataset.label ?? "";
+      input.setAttribute("aria-label", "Item label");
+      input.placeholder = "Item label";
+      let finished = false;
+      const finish = (save: boolean) => {
+        if (finished) return;
+        finished = true;
+        if (save) icon.dataset.label = input.value.trim();
+        update();
+        label.replaceChildren(button);
+      };
+      input.addEventListener("blur", () => finish(true));
+      input.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" && event.key !== "Escape") return;
+        event.preventDefault();
+        finish(event.key === "Enter");
+        button.focus();
+      });
+      label.replaceChildren(input);
+      input.focus();
+      input.select();
+    });
+    update();
   }
 
   private startReferenceDrag(event: PointerEvent, canvas: SVGSVGElement, reference: SVGGElement): void {
@@ -421,7 +480,7 @@ export class AlgorithmCanvas extends HTMLElement {
   }
 
   private itemTarget(item: SVGSVGElement): { id: string; name: string } {
-    return { id: item.dataset.itemId!, name: item.dataset.dataTypeName ?? "data type" };
+    return { id: item.dataset.itemId!, name: item.dataset.label || item.dataset.dataTypeName || "data type" };
   }
 
   private recordReferenceUpdate(previousTarget: { id: string; name: string } | null, target: { id: string; name: string } | null): void {

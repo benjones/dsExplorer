@@ -37,8 +37,48 @@ h1 { margin: 0; font-size: 1rem; }
   &:focus { outline: 1px solid var(--color-drop-border); outline-offset: 1px; }
 }
 .canvas-item {
+  overflow: visible;
   cursor: grab;
   &.is-dragging { cursor: grabbing; }
+}
+.canvas-item-label button,
+.canvas-item-label input {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--color-text);
+  background: var(--color-surface);
+  font: 12px system-ui, sans-serif;
+  text-align: center;
+}
+.canvas-item-label button {
+  background: transparent;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+
+  &.is-empty {
+    color: var(--color-muted);
+    transition: opacity 300ms ease-out;
+    &:hover { border-color: var(--color-control-border); }
+  }
+}
+.canvas-item:not(.is-label-visible) .canvas-item-label:not(:focus-within) button.is-empty {
+  opacity: 0;
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .canvas-item-label button.is-empty { transition: none; }
+}
+.canvas-item-label button:focus-visible,
+.canvas-item-label input:focus {
+  outline: 1px solid var(--color-drop-border);
+  outline-offset: -2px;
 }
 .data-type-block-value,
 .data-type-block-reference { cursor: pointer; }
